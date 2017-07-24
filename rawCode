@@ -1,0 +1,106 @@
+Sub importPlayers()
+    Application.DisplayStatusBar = True
+    Dim nextRow As Integer
+    Dim i As Integer
+    Dim j As Integer
+    Dim URL As String
+    Dim qt As QueryTable
+    Dim ws As Worksheet
+    Dim pages As Variant
+    Dim realm As Variant
+    
+    pages = InputBox("How many pages do you want to import?", "Pages to import")
+    realm = InputBox("Which realm do you want to filter by? Format example: US-Mal'Ganis", "Choose realm")
+   
+    With ThisWorkbook
+        Set ws = .Sheets.Add(After:=.Sheets(.Sheets.Count))
+        ws.Name = "Results"
+    End With
+    
+    URL = "https://www.wowprogress.com/gearscore/char_rating/0/lfg.1/raids_week.2/lang.en#char_rating"
+    
+    Set qt = ws.QueryTables.Add( _
+    Connection:="URL;" & URL, _
+    Destination:=Range("A1"))
+       
+    With qt
+        .RefreshOnFileOpen = True
+        .Name = "WoWProgress Import"
+        .FieldNames = True
+        .WebSelectionType = xlAllTables
+        .Refresh BackgroundQuery:=False
+    End With
+    
+    With Sheets("Results").Range("A26", Range("A" & Rows.Count).End(xlUp))
+    .Offset(1).EntireRow.Delete
+    End With
+ 
+    For i = 0 To pages - 2
+    
+      With ThisWorkbook
+        Set ws = .Sheets.Add(After:=.Sheets(.Sheets.Count))
+        ws.Name = "Results " & i
+        End With
+    
+        Application.StatusBar = "Currently processing page " & i
+        
+        Set qt = ws.QueryTables.Add( _
+        Connection:="URL;https://www.wowprogress.com/gearscore/char_rating/next/" & i & "/lfg.1/raids_week.2/lang.en#char_rating", _
+        Destination:=Range("A1"))
+       
+        With qt
+            .RefreshOnFileOpen = True
+            .Name = "WoWProgress Import"
+            .FieldNames = True
+            .WebSelectionType = xlAllTables
+            .Refresh BackgroundQuery:=False
+        End With
+        
+        With Sheets("Results " & i).Range("A26", Range("A" & Rows.Count).End(xlUp))
+        .Offset(1).EntireRow.Delete
+        End With
+             
+    Next
+    Application.StatusBar = False
+    
+    On Error Resume Next
+    Sheets(1).Select
+    Worksheets.Add
+    Sheets(1).Name = "Combined"
+    Sheets(2).Activate
+    Range("A1").EntireRow.Select
+    Selection.Copy Destintaion:=Sheets(1).Range("A1")
+    For j = 2 To Sheets.Count
+    Sheets(j).Activate
+    Range("A1").Select
+    Selection.CurrentRegion.Select
+    Selection.Offset(1, 0).Resize(Selection.Rows.Count - 1).Select
+    Selection.Copy Destination:=Sheets(1).Range("A65536").End(xlUp)(2)
+    Next
+     
+    Worksheets("Combined").Range("A1").Value = "Character"
+    Worksheets("Combined").Range("B1").Value = "Guild"
+    Worksheets("Combined").Range("C1").Value = "Realm"
+    
+    Worksheets("Combined").Range("A:C").WrapText = False
+    Worksheets("Combined").Range("A:C").Columns.AutoFit
+    
+    Application.DisplayAlerts = False
+    Worksheets("Results").Delete
+    Application.DisplayAlerts = True
+    
+    For i = 0 To pages - 2
+        Application.DisplayAlerts = False
+        Worksheets("Results " & i).Delete
+        Application.DisplayAlerts = True
+    Next
+    
+    Sheets("Combined").Select
+    Columns("C:C").Select
+    Selection.AutoFilter
+    ActiveSheet.Range("$C$1:$C$10000").AutoFilter _
+        Field:=1, _
+        Criteria1:=realm, _
+        VisibleDropDown:=False
+       
+End Sub
